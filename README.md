@@ -14,14 +14,14 @@ lstm_cell = WeightDropLSTMCell(
     use_vd=True, input_size=INPUT_SIZE)
 ```
 Arguments are define as follows:
-> num_units: the number of cell in LSTM layer. [ints]\
-> weight_drop_kr: the number of steps that fast weights go forward. [int]\
-> use_vd: If true, using variational dropout on weight drop-connect, standard dropout otherwise. [bool]\
-> input_size: If use_vd is True, input_size (dimension of last channel) should be provided. [int]
+> `num_units`: the number of cell in LSTM layer. [ints]\
+> `weight_drop_kr`: the number of steps that fast weights go forward. [int]\
+> `use_vd`: If true, using variational dropout on weight drop-connect, standard dropout otherwise. [bool]\
+> `input_size`: If `use_vd=True`, input_size (dimension of last channel) should be provided. [int]
 
-The remaining keyword arguments is exactly the same as [LSTMCell]. 
+The remaining keyword arguments is exactly the same as [`tf.nn.LSTMCell`](https://www.tensorflow.org/api_docs/python/tf/nn/rnn_cell/LSTMCell). 
 
-Noted that, if the weight_drop_kr is not provided or provided with 1.0, `WeightDropLSTMCell` is reducted as [`tf.nn.LSTMCell`](https://www.tensorflow.org/api_docs/python/tf/nn/rnn_cell/LSTMCell).
+Noted that, if the weight_drop_kr is not provided or provided with 1.0, `WeightDropLSTMCell` is reducted as `LSTMCell`.
 
 2. Insert update operation of dropout kernel to the place you want.
 
@@ -55,10 +55,10 @@ alt="The update operation for variational dropout" border="10" width="500" /></a
 
 
 #### Experimental results
-I have conduct experiments on a many-to-many recursive task this implementation and carry out a better results than simple [`LSTMCell`](https://www.tensorflow.org/api_docs/python/tf/nn/rnn_cell/LSTMCell).
+I have conduct experiments on a many-to-many recursive task this implementation and carry out a better results than simple `LSTMCell`.
 
 ### Addiction: Variational dropout
-I also provided a tensorflow implementation of variational dropout, which is more flexible than DropoutWrapper in tensorflow.
+I also provided a tensorflow implementation of variational dropout, which is more flexible than [`DropoutWrapper`](https://www.tensorflow.org/api_docs/python/tf/nn/rnn_cell/DropoutWrapper) in tensorflow.
 
 The usage is similar to using `WeightDropLSTMCell`:
 ```
@@ -87,7 +87,7 @@ Once again, if you use `control_dependencies`, please be careful for the order o
 
 ### TO-DO
 1. Provide the regulization utilities mentioned in the paper.
-2. Maybe there is some elegent way to implement variational dropout.
+2. Maybe there is some more elegant way to implement variational dropout.
 
 
 If you have any suggestion, please let me know. I'll be pretty grateful!
