@@ -23,7 +23,7 @@ The remaining keyword arguments is exactly the same as [LSTMCell].
 
 Noted that, if the weight_drop_kr is not provided or provided with 1.0, `WeightDropLSTMCell` is reducted as [`tf.nn.LSTMCell`](https://www.tensorflow.org/api_docs/python/tf/nn/rnn_cell/LSTMCell).
 
-2. Insert update operation of dropout kernel to the place you want
+2. Insert update operation of dropout kernel to the place you want.
 
 ```
 # By simply sess.run in each training step
@@ -83,7 +83,7 @@ with tf.control_dependencies(vd.get_update_mask_op()):
 
 You can also add `get_update_mask_op()` to `GraphKeys.UPDATE_OPS` when calling `VariationalDropout`.
 
-Once again, if you use `control_dependencies`, please be careful for the order of execution.\
+Once again, if you use `control_dependencies`, please be careful for the order of execution.
 
 ### TO-DO
 1. Provide the regulization utilities mentioned in the paper.
