@@ -234,20 +234,9 @@ class WeightDropLSTMCell(LSTMCell):
 
     def get_config(self):
         config = {
-            "num_units": self._num_units,
-            "use_peepholes": self._use_peepholes,
-            "cell_clip": self._cell_clip,
-            "initializer": initializers.serialize(self._initializer),
-            "num_proj": self._num_proj,
-            "proj_clip": self._proj_clip,
-            "num_unit_shards": self._num_unit_shards,
-            "num_proj_shards": self._num_proj_shards,
-            "forget_bias": self._forget_bias,
-            "state_is_tuple": self._state_is_tuple,
-            "activation": activations.serialize(self._activation),
-            "reuse": self._reuse,
-            "weight_drop_kr": self.weight_drop_kr,
-            "use_vd": self.use_vd,
+            "weight_drop_kr": self._weight_drop_kr,
+            "use_vd": self._use_vd,
+            "input_size": self._input_size
         }
         base_config = super(WeightDropLSTMCell, self).get_config()
 
