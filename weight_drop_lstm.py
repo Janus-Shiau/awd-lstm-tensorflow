@@ -56,14 +56,25 @@ class WeightDropLSTMCell(LSTMCell):
             tf.nn.rnn_cell.LSTMCell
     """
 
-    def __init__(self, num_units,
-                 use_peepholes=False, cell_clip=None,
-                 initializer=None, num_proj=None, proj_clip=None,
-                 num_unit_shards=None, num_proj_shards=None,
-                 forget_bias=1.0, state_is_tuple=True,
-                 weight_drop_kr=1.0, use_vd=False, 
-                 input_size=None, activation=None, reuse=None, 
-                 name=None, dtype=None, **kwargs):
+    def __init__(self, 
+                 num_units,
+                 use_peepholes=False, 
+                 cell_clip=None,
+                 initializer=None, 
+                 num_proj=None, 
+                 proj_clip=None,
+                 num_unit_shards=None, 
+                 num_proj_shards=None,
+                 forget_bias=1.0, 
+                 state_is_tuple=True,
+                 weight_drop_kr=1.0, 
+                 use_vd=False, 
+                 input_size=None, 
+                 activation=None, 
+                 reuse=None, 
+                 name=None, 
+                 dtype=None, 
+                 **kwargs):
         """ Initialize the parameters for an LSTM cell.
 
             Args:
