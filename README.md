@@ -35,7 +35,9 @@ with tf.control_dependencies(vd_update_ops):
     tf.train.AdamOptimizer(learning_rate).minimize(loss)
 ```
 
-if you use `control_dependencies`, please be careful for the order of execution.\
+You can also add `get_vd_update_op()` to `GraphKeys.UPDATE_OPS` when calling `WeightDropLSTMCell`.
+
+Noted that, if you use `control_dependencies`, please be careful for the order of execution.\
 The variational dropout kernel should not be update before the optimizer step.
 
 
@@ -60,6 +62,8 @@ I also provided a tensorflow implementation of variational dropout, which is mor
 
 The usage is similar to using `WeightDropLSTMCell`:
 ```
+from variational_dropout import VariationalDropout
+
 vd = VariationalDropout(input_shape=[5], keep_prob=0.5)
 
 # Directly sess.run() to update
@@ -76,6 +80,9 @@ with tf.control_dependencies(vd.get_update_mask_op()):
     Usually, control_dependencies will be placed where optimizer stepping.
 """
 ```
+
+You can also add `get_update_mask_op()` to `GraphKeys.UPDATE_OPS` when calling `VariationalDropout`.
+
 Once again, if you use `control_dependencies`, please be careful for the order of execution.\
 
 ### TO-DO
