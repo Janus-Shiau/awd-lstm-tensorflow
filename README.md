@@ -35,9 +35,9 @@ with tf.control_dependencies(vd_update_ops):
     tf.train.AdamOptimizer(learning_rate).minimize(loss)
 ```
 
-You can also add `get_vd_update_op()` to `GraphKeys.UPDATE_OPS` when calling `WeightDropLSTMCell`.
+You can also add `get_vd_update_op()` to [`GraphKeys.UPDATE_OPS`](https://www.tensorflow.org/api_docs/python/tf/GraphKeys) when calling `WeightDropLSTMCell`.
 
-Noted that, if you use `control_dependencies`, please be careful for the order of execution.\
+Noted that, if you use [`control_dependencies`](https://www.tensorflow.org/api_docs/python/tf/control_dependencies), please be careful for the order of execution.\
 The variational dropout kernel should not be update before the optimizer step.
 
 
