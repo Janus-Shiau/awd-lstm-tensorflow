@@ -15,10 +15,12 @@ The code is modified from tensorflow source code:
     tf.nn.rnn_cell.LSTMCell
 '''
 import tensorflow as tf
+from tensorflow.contrib.layers import layer_norm
 from tensorflow.nn import dropout
 from tensorflow.python.ops import array_ops, clip_ops, math_ops, nn_ops
 from tensorflow.python.ops.rnn_cell_impl import LSTMStateTuple
 
+from quantize_ops import hard_sigmoid, insert_quant_ops
 from variational_dropout import VariationalDropout
 
 try:
@@ -55,15 +57,28 @@ class WeightDropLSTMCell(LSTMCell):
         The code is modified from tensorflow source code:
             tf.nn.rnn_cell.LSTMCell
     """
-
-    def __init__(self, num_units,
-                 use_peepholes=False, cell_clip=None,
-                 initializer=None, num_proj=None, proj_clip=None,
-                 num_unit_shards=None, num_proj_shards=None,
-                 forget_bias=1.0, state_is_tuple=True,
-                 weight_drop_kr=1.0, use_vd=False, 
-                 input_size=None, activation=None, reuse=None, 
-                 name=None, dtype=None, **kwargs):
+    def __init__(self, 
+                 num_units,
+                 use_peepholes=False, 
+                 cell_clip=None,
+                 initializer=None, 
+                 num_proj=None, 
+                 proj_clip=None,
+                 num_unit_shards=None, 
+                 num_proj_shards=None,
+                 forget_bias=1.0,
+                 input_bias=0.0,
+                 state_is_tuple=True,
+                 weight_drop_kr=1.0, 
+                 use_vd=False, 
+                 input_size=None, 
+                 activation=None, 
+                 is_quant=False,
+                 is_train=True,
+                 reuse=None, 
+                 name=None, 
+                 dtype=None, 
+                 **kwargs):
         """ Initialize the parameters for an LSTM cell.
 
             Args:
@@ -108,14 +123,25 @@ class WeightDropLSTMCell(LSTMCell):
                     `trainable` etc when constructing the cell from configs of get_config().
 
         """
-        super(WeightDropLSTMCell, self).__init__(num_units=num_units, **kwargs)
+        super(WeightDropLSTMCell, self).__init__(
+            num_units=num_units, use_peepholes=use_peepholes, 
+            cell_clip=cell_clip, initializer=initializer, 
+            num_proj=num_proj, proj_clip=proj_clip, 
+            num_unit_shards=num_unit_shards, num_proj_shards=num_proj_shards, 
+            forget_bias=forget_bias, state_is_tuple=state_is_tuple, 
+            activation=activation, reuse=reuse, name=name, dtype=dtype, **kwargs) 
 
         if use_vd and input_size is None:
             raise KeyError("input_size should be provided if use_vd is True!")
 
-        self._weight_drop_kr   = weight_drop_kr
-        self._use_vd           = use_vd
-        self._input_size       = input_size
+        self._input_bias     = input_bias
+        self._weight_drop_kr = weight_drop_kr
+        self._use_vd         = use_vd
+        self._input_size     = input_size
+        self._is_quant       = is_quant
+        self._is_train       = is_train
+        self._quant_ops      = {}
+
 
         if self._use_vd and not self._weight_drop_kr == 1.0:
             h_depth      = self._num_units if self._num_proj is None else self._num_proj
@@ -149,10 +175,13 @@ class WeightDropLSTMCell(LSTMCell):
                 ValueError: If input size cannot be inferred from inputs via
                 static shape inference.
         """
-
         num_proj = self._num_units if self._num_proj is None else self._num_proj
-        sigmoid = math_ops.sigmoid
 
+        sigmoid = math_ops.sigmoid
+        if self._is_quant:
+            self._activation = tf.nn.relu
+            sigmoid = hard_sigmoid
+        
         if self._state_is_tuple:
             (c_prev, m_prev) = state
         else:
@@ -164,35 +193,44 @@ class WeightDropLSTMCell(LSTMCell):
             raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
 
         # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-        if not self._weight_drop_kr == 1.0:
-            if self._use_vd:
-                with tf.variable_scope('var_weight_drop_connect'):
-                    drop_kernel = self.vd(self._kernel)
+        with tf.variable_scope('w_matmul_b_add'):
+            _kernel = tf.identity(self._kernel, name='weights')
 
-            else:
-                with tf.variable_scope('weight_drop_connect'):
-                    w1, w2 = self._kernel.get_shape().as_list()
-                    drop_kernel = tf.reshape(self._kernel, [-1])
-                    drop_kernel = dropout(drop_kernel, keep_prob=self._weight_drop_kr)
-                    drop_kernel = tf.reshape(drop_kernel, [w1, w2])
+            if not self._weight_drop_kr == 1.0:
+                if self._use_vd:
+                    with tf.variable_scope('var_weight_drop_connect'):
+                        _kernel = self.vd(_kernel)
+
+                else:
+                    with tf.variable_scope('weight_drop_connect'):
+                        w1, w2 = _kernel.get_shape().as_list()
+                        _kernel = tf.reshape(_kernel, [-1])
+                        _kernel = dropout(_kernel, keep_prob=self._weight_drop_kr)
+                        _kernel = tf.reshape(_kernel, [w1, w2])
 
             lstm_matrix = math_ops.matmul(
-                array_ops.concat([inputs, m_prev], 1), drop_kernel)
-        else:
-            lstm_matrix = math_ops.matmul(
-                array_ops.concat([inputs, m_prev], 1), self._kernel)
+                array_ops.concat([inputs, m_prev], 1), _kernel)
 
-        lstm_matrix = nn_ops.bias_add(lstm_matrix, self._bias)
+            lstm_matrix = nn_ops.bias_add(lstm_matrix, self._bias)
 
+            if self._is_quant:
+                self._quant_ops['lstm_matrix'] = lstm_matrix
+
+        # i = input_gate, j = new_input, f = forget_gate, o = output_gate
         i, j, f, o = array_ops.split(
             value=lstm_matrix, num_or_size_splits=4, axis=1)
 
+        if self._is_quant:
+            self._quant_ops['i'] = i
+
+
         if self._use_peepholes:
             c = (sigmoid(f + self._forget_bias + self._w_f_diag * c_prev) * c_prev +
-                sigmoid(i + self._w_i_diag * c_prev) * self._activation(j))
+                sigmoid(i + self._input_bias + self._w_i_diag * c_prev) * self._activation(j))
         else:
-            c = (sigmoid(f + self._forget_bias) * c_prev + sigmoid(i) *
+            c = (sigmoid(f + self._forget_bias) * c_prev + sigmoid(i + self._input_bias) *
                 self._activation(j))
+
 
         if self._cell_clip is not None:
             c = clip_ops.clip_by_value(c, -self._cell_clip, self._cell_clip)
@@ -202,17 +240,30 @@ class WeightDropLSTMCell(LSTMCell):
             m = sigmoid(o) * self._activation(c)
 
         if self._num_proj is not None:
-            m = math_ops.matmul(m, self._proj_kernel)
+            with tf.variable_scope('projection') as scope: 
+                _proj_kernel = tf.identity(self._proj_kernel, name='weights')
+                m = math_ops.matmul(m, _proj_kernel)
 
-        if self._proj_clip is not None:
-            m = clip_ops.clip_by_value(m, -self._proj_clip, self._proj_clip)
+            if self._proj_clip is not None:
+                m = clip_ops.clip_by_value(m, -self._proj_clip, self._proj_clip)
+
+            if self._is_quant:
+                self._quant_ops['proj_kernel'] = _proj_kernel
+
+
+        c = tf.identity(c, name='end_c')
+        m = tf.identity(m, name='end_m')
 
         new_state = (LSTMStateTuple(c, m) if self._state_is_tuple else
-                    array_ops.concat([c, m], 1))
+                        array_ops.concat([c, m], 1))
+
+        if self._is_quant:
+            insert_quant_ops(self._quant_ops, is_train=self._is_train)
+        
 
         return m, new_state
-
     
+
     def get_vd_update_op(self):
         if self._use_vd and not self._weight_drop_kr == 1.0:
             return self.vd.get_update_mask_op()
@@ -223,20 +274,13 @@ class WeightDropLSTMCell(LSTMCell):
 
     def get_config(self):
         config = {
-            "num_units": self._num_units,
-            "use_peepholes": self._use_peepholes,
-            "cell_clip": self._cell_clip,
-            "initializer": initializers.serialize(self._initializer),
-            "num_proj": self._num_proj,
-            "proj_clip": self._proj_clip,
-            "num_unit_shards": self._num_unit_shards,
-            "num_proj_shards": self._num_proj_shards,
-            "forget_bias": self._forget_bias,
-            "state_is_tuple": self._state_is_tuple,
-            "activation": activations.serialize(self._activation),
-            "reuse": self._reuse,
             "weight_drop_kr": self.weight_drop_kr,
             "use_vd": self.use_vd,
+            "input_bias": self._input_bias,
+            "use_vd": self._use_vd,
+            "input_size": self._input_size,
+            "is_quant": self._is_quant,
+            "is_train": self._is_train
         }
         base_config = super(WeightDropLSTMCell, self).get_config()
 
