@@ -3,16 +3,29 @@
 Copyright (c) 2019 [Jia-Yau Shiau]
 Code work by Jia-Yau (jiayau.shiau@gmail.com).
 --------------------------------------------------
-Weight-dropped Long short-term memory unit (AWD-LSTM) recurrent network cell.
-The implementation is based on:
+1. Weight-dropped Long short-term memory unit (AWD-LSTM) recurrent network cell.
+    The implementation is based on:
 
-    https://arxiv.org/abs/1708.02182
-        
-"Regularizing and Optimizing LSTM Language Models,"
-Stephen Merity, Nitish Shirish Keskar, Richard Socher.
+        https://arxiv.org/abs/1708.02182
+            
+    "Regularizing and Optimizing LSTM Language Models,"
+    Stephen Merity, Nitish Shirish Keskar, Richard Socher.
 
-The code is modified from tensorflow source code:
-    tf.nn.rnn_cell.LSTMCell
+    The code is modified from tensorflow source code:
+        tf.nn.rnn_cell.LSTMCell
+
+2. Quantization operations and fully integral calculation for Weight-Drop LSTM cell.
+    This implementation is based on:
+
+        https://arxiv.org/pdf/1712.05877.pdf
+
+    "Quantization and Training of Neural Networks for 
+    Efficient Integer-Arithmetic-Only Inference"
+    Benoit Jacob, Skirmantas Kligys, Bo Chen, Menglong Zhu, 
+    Matthew Tang, Andrew Howard, Hartwig Adam, Dmitry Kalenichenko
+
+    The code is modified from tensorflow source code:
+        tf.quantization.quantize
 '''
 import tensorflow as tf
 from tensorflow.contrib.layers import layer_norm

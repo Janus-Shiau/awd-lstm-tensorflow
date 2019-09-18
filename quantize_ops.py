@@ -1,9 +1,8 @@
 
 '''
 Copyright (c) 2019 [Jia-Yau Shiau]
-Code work by 
-1. Jia-Yau (jiayau.shiau@gmail.com).
-2. Peter Huang (peter124574@gmail.com)
+Code work by Jia-Yau (jiayau.shiau@gmail.com).
+Code work is advised and forked from Peter Huang (peter124574@gmail.com)
 --------------------------------------------------
 Quantization operations and fully integral calculation for Weight-Drop LSTM cell.
 This implementation is based on:
